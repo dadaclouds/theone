@@ -1,0 +1,35 @@
+body {
+  background: var(--mantine-color-gray-0);
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background: var(--mantine-color-blue-0);
+}
+
+.note-textarea textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.prewrap {
+  white-space: pre-wrap;
+}
+
+@media print {
+  .no-print,
+  .mantine-AppShell-navbar,
+  .mantine-AppShell-header {
+    display: none !important;
+  }
+  .mantine-AppShell-main {
+    padding: 0 !important;
+  }
+  body {
+    background: white;
+  }
+}

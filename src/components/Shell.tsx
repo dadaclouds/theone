@@ -1,0 +1,150 @@
+import { AppShell, Avatar, Badge, Burger, Group, Menu, NavLink, ScrollArea, Text, UnstyledButton } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import {
+  IconCalendar,
+  IconChecklist,
+  IconHome,
+  IconInbox,
+  IconLogout,
+  IconMessages,
+  IconReceipt,
+  IconSettings,
+  IconStethoscope,
+  IconUsers,
+} from '@tabler/icons-react';
+import { useMedplum, useMedplumProfile } from '@medplum/react';
+import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router';
+import { TASK_CODES, SYSTEMS } from '../lib/constants';
+import { profileDisplay } from '../lib/fhir';
+import { PatientSearch } from './PatientSearch';
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: ReactNode;
+  countKey?: 'inbox' | 'tasks';
+}
+
+const NAV: NavItem[] = [
+  { label: 'Dashboard', href: '/', icon: <IconHome size={18} /> },
+  { label: 'Patients', href: '/patients', icon: <IconUsers size={18} /> },
+  { label: 'Schedule', href: '/schedule', icon: <IconCalendar size={18} /> },
+  { label: 'Results inbox', href: '/inbox', icon: <IconInbox size={18} />, countKey: 'inbox' },
+  { label: 'Tasks', href: '/tasks', icon: <IconChecklist size={18} />, countKey: 'tasks' },
+  { label: 'Messages', href: '/messages', icon: <IconMessages size={18} /> },
+  { label: 'Billing', href: '/billing', icon: <IconReceipt size={18} /> },
+  { label: 'Admin', href: '/admin', icon: <IconSettings size={18} /> },
+];
+
+export function Shell({ children }: { children: ReactNode }) {
+  const medplum = useMedplum();
+  const profile = useMedplumProfile();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [opened, { toggle, close }] = useDisclosure();
+  const [counts, setCounts] = useState<{ inbox: number; tasks: number }>({ inbox: 0, tasks: 0 });
+  const project = medplum.getProject();
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async (): Promise<void> => {
+      const open = 'requested,received,accepted,in-progress,ready';
+      const [inbox, tasks] = await Promise.all([
+        medplum.search('Task', { code: `${SYSTEMS.TASK_TYPE}|${TASK_CODES.REVIEW_RESULT}`, status: open, _summary: 'count' }, { cache: 'no-cache' }),
+        medplum.search('Task', { 'code:not': `${SYSTEMS.TASK_TYPE}|${TASK_CODES.REVIEW_RESULT}`, status: open, _summary: 'count' }, { cache: 'no-cache' }),
+      ]);
+      if (!cancelled) {
+        setCounts({ inbox: inbox.total ?? 0, tasks: tasks.total ?? 0 });
+      }
+    };
+    load().catch(console.error);
+    const timer = setInterval(() => load().catch(console.error), 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [medplum, location.pathname]);
+
+  const isActive = (href: string): boolean =>
+    href === '/' ? location.pathname === '/' : location.pathname.startsWith(href);
+
+  return (
+    <AppShell
+      header={{ height: 56 }}
+      navbar={{ width: 230, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+      padding="md"
+    >
+      <AppShell.Header px="md">
+        <Group h="100%" justify="space-between" wrap="nowrap">
+          <Group gap="xs" wrap="nowrap">
+            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <UnstyledButton onClick={() => navigate('/')}>
+              <Group gap={6} wrap="nowrap">
+                <IconStethoscope size={24} color="var(--mantine-color-blue-6)" />
+                <Text fw={700} size="lg" visibleFrom="xs">
+                  Medplum EHR
+                </Text>
+              </Group>
+            </UnstyledButton>
+          </Group>
+          <PatientSearch onSelect={(p) => navigate(`/patients/${p.id}`)} w={{ base: 180, sm: 360 }} />
+          <Menu position="bottom-end" width={240}>
+            <Menu.Target>
+              <UnstyledButton aria-label="User menu">
+                <Group gap="xs" wrap="nowrap">
+                  <Avatar radius="xl" size="sm" color="blue">
+                    {(profileDisplay(profile) ?? '?').charAt(0)}
+                  </Avatar>
+                  <Text size="sm" visibleFrom="md">
+                    {profileDisplay(profile)}
+                  </Text>
+                </Group>
+              </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>{project?.name ?? 'Project'}</Menu.Label>
+              <Menu.Item disabled>{medplum.getActiveLogin()?.profile?.display ?? profileDisplay(profile)}</Menu.Item>
+              <Menu.Divider />
+              <Menu.Item
+                leftSection={<IconLogout size={16} />}
+                onClick={async () => {
+                  await medplum.signOut();
+                  navigate('/signin');
+                }}
+              >
+                Sign out
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </Group>
+      </AppShell.Header>
+      <AppShell.Navbar p="xs">
+        <ScrollArea>
+          {NAV.map((item) => (
+            <NavLink
+              key={item.href}
+              label={item.label}
+              leftSection={item.icon}
+              active={isActive(item.href)}
+              onClick={() => {
+                navigate(item.href);
+                close();
+              }}
+              rightSection={
+                item.countKey && counts[item.countKey] > 0 ? (
+                  <Badge size="sm" circle={counts[item.countKey] < 10} color="red">
+                    {counts[item.countKey]}
+                  </Badge>
+                ) : undefined
+              }
+              style={{ borderRadius: 8 }}
+            />
+          ))}
+        </ScrollArea>
+      </AppShell.Navbar>
+      <AppShell.Main>{children}</AppShell.Main>
+    </AppShell>
+  );
+}
