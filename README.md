@@ -55,6 +55,9 @@ npm run dev                # http://localhost:3000
 
 The server URL can also be changed on the sign-in screen.
 
+The portal name (header, sign-in page and browser tab) comes from `MEDPLUM_APP_NAME` in `.env`;
+restart `npm run dev` or rebuild after changing it.
+
 ### Backend options
 
 * **Medplum hosted** – set `MEDPLUM_BASE_URL=https://api.medplum.com/`, create a project at

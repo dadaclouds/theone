@@ -3,6 +3,7 @@ import { IconStethoscope } from '@tabler/icons-react';
 import { SignInForm } from '@medplum/react';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { APP_NAME } from '../lib/branding';
 import { getBaseUrl, setBaseUrl } from '../lib/server';
 
 export function SignInPage() {
@@ -16,7 +17,7 @@ export function SignInPage() {
       <Stack w={420} maw="100%">
         <Group justify="center" gap="xs">
           <IconStethoscope size={32} color="var(--mantine-color-blue-6)" />
-          <Title order={2}>Medplum EHR</Title>
+          <Title order={2}>{APP_NAME}</Title>
         </Group>
         <SignInForm
             onSuccess={() => navigate(params.get('next') || '/')}

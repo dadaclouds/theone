@@ -16,6 +16,7 @@ import { useMedplum, useMedplumProfile } from '@medplum/react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { APP_NAME } from '../lib/branding';
 import { TASK_CODES, SYSTEMS } from '../lib/constants';
 import { profileDisplay } from '../lib/fhir';
 import { PatientSearch } from './PatientSearch';
@@ -84,7 +85,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <Group gap={6} wrap="nowrap">
                 <IconStethoscope size={24} color="var(--mantine-color-blue-6)" />
                 <Text fw={700} size="lg" visibleFrom="xs">
-                  Medplum EHR
+                  {APP_NAME}
                 </Text>
               </Group>
             </UnstyledButton>

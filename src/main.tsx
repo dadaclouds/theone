@@ -13,6 +13,10 @@ import { App } from './App';
 import './index.css';
 import { getBaseUrl } from './lib/server';
 
+import { APP_NAME } from './lib/branding';
+
+document.title = APP_NAME;
+
 const medplum = new MedplumClient({
   baseUrl: getBaseUrl(),
   clientId: import.meta.env.MEDPLUM_CLIENT_ID || undefined,
