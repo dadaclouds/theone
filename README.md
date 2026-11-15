@@ -17,6 +17,7 @@ resources, so the data is portable and interoperable from day one.
 | **Tasks** | Care-team work queue (refills, follow-up calls, general), assignment, due dates, overdue flags |
 | **Messaging** | Patient message threads |
 | **Billing** | Claims (superbills) generated on visit signing, submit / void, CSV export |
+| **Profiles & users** | Everyone edits their own name, credentials, phone, contact email and NPI (check-digit validated) and changes their password under **My profile**. Admins edit any clinician, change sign-in emails (user names), grant/revoke admin, and deactivate/reactivate accounts |
 | **Admin** | Users, invite clinicians, audit events |
 
 ## FHIR data model
@@ -58,6 +59,21 @@ The server URL can also be changed on the sign-in screen.
 The portal name (header, sign-in page and browser tab) comes from `MEDPLUM_APP_NAME` in `.env`;
 restart `npm run dev` or rebuild after changing it.
 
+### User accounts and `MEDPLUM_PROJECT_ID`
+
+Medplum has two kinds of accounts:
+
+* **Clinic-owned (project-scoped)** – belong to your project. Project admins can change their
+  sign-in email (user name). They must sign in with the project ID, so set `MEDPLUM_PROJECT_ID`
+  in `.env` (`npm run seed` fills it in for you; it is also shown on the Admin page).
+  With it set, **Invite clinician** creates clinic-owned accounts.
+* **Server-wide** – can belong to several Medplum projects. Admins can still edit their name and
+  profile, but only a Medplum server (super) administrator can change their sign-in email.
+
+Sign-in emails are changed with Medplum's `$update-email` operation, which also signs the user
+out everywhere (their password is unchanged). Never edit `User.email` directly: project admins
+cannot see the password hash, so a direct update locks the user out.
+
 ### Backend options
 
 * **Medplum hosted** – set `MEDPLUM_BASE_URL=https://api.medplum.com/`, create a project at
@@ -72,7 +88,8 @@ restart `npm run dev` or rebuild after changing it.
 MEDPLUM_BASE_URL=http://localhost:8103/ npm run seed
 ```
 
-Creates the project **Riverside Family Medicine**, two clinicians and eight patients with
+Creates the project **Riverside Family Medicine** (override with `DEMO_PROJECT`), two clinic-owned
+clinician accounts, writes `MEDPLUM_PROJECT_ID` to `.env`, and adds eight patients with
 realistic histories, labs, appointments today, tasks and messages. On a fresh self-hosted
 server it uses the default super-admin (`admin@example.com` / `medplum_admin`, override with
 `MEDPLUM_ADMIN_EMAIL` / `MEDPLUM_ADMIN_PASSWORD`); otherwise it self-registers.
@@ -84,7 +101,7 @@ Sign in as `dr.chen@example.com` / `Riverside-demo-2026!` (or `dr.okafor@example
 ```bash
 npm test                   # unit tests for clinical logic (allergy screening, vitals, notes, labs, billing)
 npm run typecheck
-npm run e2e                # 22-step browser walkthrough; needs the app + seeded server running and Playwright installed
+npm run e2e                # 27-step browser walkthrough; needs the app + seeded server running and Playwright installed
 ```
 
 ## Before using with real patients

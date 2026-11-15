@@ -10,6 +10,7 @@ import {
   IconReceipt,
   IconSettings,
   IconStethoscope,
+  IconUser,
   IconUsers,
 } from '@tabler/icons-react';
 import { useMedplum, useMedplumProfile } from '@medplum/react';
@@ -106,7 +107,9 @@ export function Shell({ children }: { children: ReactNode }) {
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Label>{project?.name ?? 'Project'}</Menu.Label>
-              <Menu.Item disabled>{medplum.getActiveLogin()?.profile?.display ?? profileDisplay(profile)}</Menu.Item>
+              <Menu.Item leftSection={<IconUser size={16} />} onClick={() => navigate('/profile')}>
+                My profile
+              </Menu.Item>
               <Menu.Divider />
               <Menu.Item
                 leftSection={<IconLogout size={16} />}

@@ -10,6 +10,7 @@ import type {
 } from '@medplum/fhirtypes';
 import type { CatalogItem } from './catalog';
 import { SYSTEMS } from './constants';
+import { practitionerDisplay, practitionerToForm } from './practitioner';
 
 export type ProfileLike = Practitioner | Patient | Resource;
 
@@ -90,7 +91,10 @@ export function refTo<T extends Resource>(resource: T | undefined, display?: str
 }
 
 export function profileDisplay(profile: ProfileLike | undefined): string | undefined {
-  if (profile && (profile.resourceType === 'Practitioner' || profile.resourceType === 'Patient')) {
+  if (profile?.resourceType === 'Practitioner') {
+    return practitionerDisplay(practitionerToForm(profile)) || undefined;
+  }
+  if (profile && profile.resourceType === 'Patient') {
     const n = profile.name?.[0];
     return n ? formatHumanName(n as HumanName) : undefined;
   }

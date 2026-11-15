@@ -8,6 +8,7 @@
  * tops up today's schedule.
  */
 import { MedplumClient, createReference, getReferenceString } from '@medplum/core';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import type {
   AllergyIntolerance, Appointment, Communication, Condition, Coverage, DocumentReference, Encounter, Immunization,
   MedicationRequest, Organization, Patient, Practitioner, ProjectMembership, Reference, ServiceRequest, Task,
@@ -24,7 +25,7 @@ const BASE_URL = process.env.MEDPLUM_BASE_URL ?? 'http://localhost:8103/';
 export const DEMO = {
   email: process.env.DEMO_EMAIL ?? 'dr.chen@example.com',
   password: process.env.DEMO_PASSWORD ?? 'Riverside-demo-2026!',
-  project: 'Riverside Family Medicine',
+  project: process.env.DEMO_PROJECT ?? 'Riverside Family Medicine',
 };
 
 const medplum = new MedplumClient({ baseUrl: BASE_URL });
@@ -42,8 +43,32 @@ const at = (daysFromNow: number, hour: number, minute = 0): Date => {
 };
 const iso = (d: Date) => d.toISOString();
 
-async function loginAs(client: MedplumClient, email: string, password: string, projectName?: string): Promise<void> {
-  const login = await client.startLogin({ email, password });
+const ENV_FILE = new URL('../.env', import.meta.url);
+
+function readEnvFile(): Record<string, string> {
+  if (!existsSync(ENV_FILE)) return {};
+  return Object.fromEntries(
+    readFileSync(ENV_FILE, 'utf8').split('\n').map((l) => l.match(/^\s*([A-Z_]+)=(.*)$/)).filter((m): m is RegExpMatchArray => !!m).map((m) => [m[1], m[2].trim()])
+  );
+}
+
+/** Records the demo project ID in .env so the app can sign in clinic-owned (project-scoped) accounts. */
+function saveProjectIdToEnv(id: string): void {
+  const defaults = new URL('../.env.defaults', import.meta.url);
+  let text = existsSync(ENV_FILE) ? readFileSync(ENV_FILE, 'utf8') : existsSync(defaults) ? readFileSync(defaults, 'utf8') : '';
+  if (/^MEDPLUM_PROJECT_ID=.*$/m.test(text)) {
+    text = text.replace(/^MEDPLUM_PROJECT_ID=.*$/m, `MEDPLUM_PROJECT_ID=${id}`);
+  } else {
+    text = `${text.replace(/\n?$/, '\n')}MEDPLUM_PROJECT_ID=${id}\n`;
+  }
+  writeFileSync(ENV_FILE, text);
+  console.log(`Saved MEDPLUM_PROJECT_ID=${id} to .env (restart "npm run dev" to pick it up).`);
+}
+
+let projectId = process.env.MEDPLUM_PROJECT_ID?.trim() || readEnvFile().MEDPLUM_PROJECT_ID || undefined;
+
+async function loginAs(client: MedplumClient, email: string, password: string, projectName?: string, project?: string): Promise<void> {
+  const login = await client.startLogin({ email, password, projectId: project });
   if (login.code) {
     await client.processCode(login.code);
     return;
@@ -61,7 +86,7 @@ async function loginAs(client: MedplumClient, email: string, password: string, p
  */
 async function signIn(): Promise<{ practitioner: Practitioner; isNew: boolean }> {
   try {
-    await loginAs(medplum, DEMO.email, DEMO.password, DEMO.project);
+    await loginAs(medplum, DEMO.email, DEMO.password, DEMO.project, projectId);
     console.log(`Signed in as existing demo user ${DEMO.email}`);
     return { practitioner: medplum.getProfile() as Practitioner, isNew: false };
   } catch {
@@ -79,11 +104,20 @@ async function signIn(): Promise<{ practitioner: Practitioner; isNew: boolean }>
     await medplum.processCode(project.code as string);
     return { practitioner: medplum.getProfile() as Practitioner, isNew: true };
   }
+  const existing = await admin.searchOne('Project', { name: DEMO.project });
+  if (existing) {
+    await loginAs(medplum, DEMO.email, DEMO.password, DEMO.project, existing.id);
+    projectId = existing.id;
+    console.log(`Signed in to existing project "${DEMO.project}"`);
+    return { practitioner: medplum.getProfile() as Practitioner, isNew: false };
+  }
   const project = await admin.createResource({ resourceType: 'Project', name: DEMO.project, strictMode: true });
+  // Clinic-owned (project-scoped) account, so project admins can later change its sign-in email.
   await admin.post(`admin/projects/${project.id}/invite`, {
-    resourceType: 'Practitioner', firstName: 'Maya', lastName: 'Chen', email: DEMO.email, password: DEMO.password, sendEmail: false, admin: true,
+    resourceType: 'Practitioner', firstName: 'Maya', lastName: 'Chen', email: DEMO.email, password: DEMO.password, sendEmail: false, admin: true, scope: 'project',
   });
-  await loginAs(medplum, DEMO.email, DEMO.password, DEMO.project);
+  projectId = project.id;
+  await loginAs(medplum, DEMO.email, DEMO.password, DEMO.project, projectId);
   console.log(`Created project "${DEMO.project}" and admin user ${DEMO.email}`);
   return { practitioner: medplum.getProfile() as Practitioner, isNew: true };
 }
@@ -93,7 +127,7 @@ async function invite(firstName: string, lastName: string, email: string, prefix
   if (existing) return existing;
   const projectId = medplum.getProject()?.id;
   const membership = (await medplum.post(`admin/projects/${projectId}/invite`, {
-    resourceType: 'Practitioner', firstName, lastName, email, password: DEMO.password, sendEmail: false,
+    resourceType: 'Practitioner', firstName, lastName, email, password: DEMO.password, sendEmail: false, scope: 'project',
   })) as ProjectMembership;
   const practitioner = await medplum.readReference(membership.profile as Reference<Practitioner>);
   if (prefix) {
@@ -268,7 +302,9 @@ async function main(): Promise<void> {
   console.log(`Seeding ${BASE_URL}`);
   const { practitioner: chenRaw } = await signIn();
   const chen = chenRaw.name?.[0]?.prefix ? chenRaw : await medplum.updateResource({ ...chenRaw, name: [{ prefix: ['Dr.'], given: ['Maya'], family: 'Chen' }] });
-  const okafor = await invite('James', 'Okafor', 'dr.okafor@example.com', 'Dr.');
+  const okafor = await invite('James', 'Okafor', process.env.DEMO_EMAIL_2 ?? 'dr.okafor@example.com', 'Dr.');
+  projectId ??= medplum.getProject()?.id;
+  if (projectId && readEnvFile().MEDPLUM_PROJECT_ID !== projectId) saveProjectIdToEnv(projectId);
   const drChen = pref(chen);
   const drOkafor = pref(okafor);
 

@@ -10,6 +10,7 @@ import { InboxPage } from './pages/InboxPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { NewPatientPage } from './pages/NewPatientPage';
 import { PatientListPage } from './pages/PatientListPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { PatientPage } from './pages/patient/PatientPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { SignInPage } from './pages/SignInPage';
@@ -53,6 +54,7 @@ export function App() {
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>

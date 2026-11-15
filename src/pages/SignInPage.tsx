@@ -4,7 +4,7 @@ import { SignInForm } from '@medplum/react';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { APP_NAME } from '../lib/branding';
-import { getBaseUrl, setBaseUrl } from '../lib/server';
+import { getBaseUrl, getProjectId, setBaseUrl } from '../lib/server';
 
 export function SignInPage() {
   const navigate = useNavigate();
@@ -20,6 +20,7 @@ export function SignInPage() {
           <Title order={2}>{APP_NAME}</Title>
         </Group>
         <SignInForm
+            projectId={getProjectId()}
             onSuccess={() => navigate(params.get('next') || '/')}
             disableGoogleAuth
           >

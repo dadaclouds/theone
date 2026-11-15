@@ -19,3 +19,11 @@ export function setBaseUrl(url: string): void {
     // storage unavailable
   }
 }
+
+/**
+ * Optional Medplum project ID. Required for clinic-owned (project-scoped) accounts to sign in;
+ * also lets administrators change those accounts' sign-in email.
+ */
+export function getProjectId(): string | undefined {
+  return import.meta.env.MEDPLUM_PROJECT_ID?.trim() || undefined;
+}

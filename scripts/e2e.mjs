@@ -239,6 +239,111 @@ await check('admin', async () => {
   await expectVisible(page.getByText('dr.okafor@example.com').or(page.getByText('James Okafor')));
 });
 
+// ---------- Profiles & user management ----------
+const EMAIL_2 = process.env.DEMO_EMAIL_2 ?? 'dr.okafor@example.com';
+const renamed = `okafor.${unique}@example.com`;
+
+async function signInAs(email, password = PASSWORD) {
+  const ctx = await browser.newContext();
+  const p = await ctx.newPage();
+  await p.goto(`${APP}/signin`);
+  await p.locator('input[name="email"]').fill(email);
+  await p.getByRole('button', { name: /next|continue|sign in/i }).first().click();
+  await p.locator('input[name="password"]').fill(password);
+  await p.getByRole('button', { name: /sign in/i }).click();
+  const ok = await p.getByText("Today's schedule").waitFor({ timeout: 15000 }).then(() => true).catch(() => false);
+  await ctx.close();
+  return ok;
+}
+
+await check('my profile: edit own name', async () => {
+  await page.goto(`${APP}/`);
+  await page.getByRole('button', { name: 'User menu' }).click();
+  await page.getByRole('menuitem', { name: 'My profile' }).click();
+  await expectVisible(page.getByTestId('login-email').getByText(EMAIL));
+  await page.getByLabel('NPI').fill('1234567890');
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await expectVisible(page.getByText('NPI must be 10 digits with a valid check digit'));
+  await page.getByLabel('NPI').fill('1234567893');
+  await page.getByLabel('Credentials').fill('MD');
+  await page.getByLabel('First name').fill('Maya-Lin');
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await toast('Profile updated');
+  await expectVisible(page.locator('header').getByText('Dr. Maya-Lin Chen, MD'));
+});
+
+await check('admin: edit other user name + sign-in email', async () => {
+  await page.goto(`${APP}/admin`);
+  const row = page.getByTestId('users-card').getByRole('row', { name: new RegExp(EMAIL_2.replace(/[.]/g, '\\.')) });
+  await row.getByRole('button', { name: /Edit/ }).click();
+  const m = modal();
+  await expectVisible(m.getByText(/Changing this signs the user out/));
+  await m.getByLabel('First name').fill('Jim');
+  await m.getByLabel('User name (sign-in email)').fill(EMAIL);
+  await expectVisible(m.getByText('Another user already signs in with this email'));
+  await m.getByLabel('User name (sign-in email)').fill(renamed);
+  await m.getByRole('button', { name: 'Save changes' }).click();
+  await toast(/User updated/);
+  await expectVisible(page.getByTestId('users-card').getByRole('row', { name: new RegExp(`Jim Okafor.*${renamed.replace(/[.]/g, '\\.')}`) }));
+  if (!(await signInAs(renamed))) throw new Error('could not sign in with new email');
+  if (await signInAs(EMAIL_2)) throw new Error('old email still signs in');
+});
+
+await check('admin: deactivate and reactivate user', async () => {
+  const row = () => page.getByTestId('users-card').getByRole('row', { name: new RegExp(renamed.replace(/[.]/g, '\\.')) });
+  await row().getByRole('button', { name: /Edit/ }).click();
+  await modal().getByLabel('Active (can sign in)').uncheck({ force: true });
+  await modal().getByRole('button', { name: 'Save changes' }).click();
+  await expectVisible(row().getByText('Deactivated'));
+  if (await signInAs(renamed)) throw new Error('deactivated user could sign in');
+  await row().getByRole('button', { name: /Edit/ }).click();
+  await modal().getByLabel('Active (can sign in)').check({ force: true });
+  // restore original name/email so the walkthrough can be re-run
+  await modal().getByLabel('First name').fill('James');
+  await modal().getByLabel('User name (sign-in email)').fill(EMAIL_2);
+  await modal().getByRole('button', { name: 'Save changes' }).click();
+  await expectVisible(page.getByTestId('users-card').getByRole('row', { name: new RegExp(`James Okafor.*${EMAIL_2.replace(/[.]/g, '\\.')}.*Active`) }));
+  if (!(await signInAs(EMAIL_2))) throw new Error('reactivated user could not sign in');
+});
+
+await check('admin: cannot demote or deactivate self', async () => {
+  const self = page.getByTestId('users-card').getByRole('row', { name: new RegExp(EMAIL.replace(/[.]/g, '\\.')) });
+  await self.getByRole('button', { name: /Edit/ }).click();
+  if (!(await modal().getByLabel('Project administrator').isDisabled())) throw new Error('self admin toggle enabled');
+  if (!(await modal().getByLabel('Active (can sign in)').isDisabled())) throw new Error('self active toggle enabled');
+  await page.keyboard.press('Escape');
+});
+
+await check('my profile: change own sign-in email', async () => {
+  const mine = `chen.${unique}@example.com`;
+  await page.goto(`${APP}/profile`);
+  // restore display name for re-runs
+  await page.getByLabel('First name').fill('Maya');
+  await page.getByLabel('Credentials').fill('');
+  await page.getByLabel('Contact email').fill(EMAIL);
+  if (await page.getByRole('button', { name: 'Save profile' }).isEnabled()) {
+    await page.getByRole('button', { name: 'Save profile' }).click();
+    await toast('Profile updated');
+  }
+  await page.getByRole('button', { name: 'Change sign-in email' }).click();
+  await modal().getByLabel('New sign-in email').fill(mine);
+  await modal().getByRole('button', { name: 'Change email' }).click();
+  await expectVisible(page.locator('input[name="email"]'), 15000);
+  if (!(await signInAs(mine))) throw new Error('could not sign in with new email');
+  // change it back via the UI
+  await page.locator('input[name="email"]').fill(mine);
+  await page.getByRole('button', { name: /next|continue|sign in/i }).first().click();
+  await page.locator('input[name="password"]').fill(PASSWORD);
+  await page.getByRole('button', { name: /sign in/i }).click();
+  await expectVisible(page.getByText("Today's schedule"), 20000);
+  await page.goto(`${APP}/profile`);
+  await page.getByRole('button', { name: 'Change sign-in email' }).click();
+  await modal().getByLabel('New sign-in email').fill(EMAIL);
+  await modal().getByRole('button', { name: 'Change email' }).click();
+  await expectVisible(page.locator('input[name="email"]'), 15000);
+  if (!(await signInAs(EMAIL))) throw new Error('could not restore original email');
+});
+
 await browser.close();
 console.log(results.join('\n'));
 const failed = results.filter((r) => r.startsWith('FAIL')).length;
