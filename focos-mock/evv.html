@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FOCOS EVV Simulator</title>
+<style>
+  :root { --brand: #1c7ed6; --ink: #1a1b1e; --muted: #6b7280; --line: #e5e7eb; --ok: #2f9e44; --bg: #f1f3f5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--ink); }
+  .phone { max-width: 420px; margin: 0 auto; min-height: 100vh; background: #fff; box-shadow: 0 0 0 1px var(--line); }
+  header { background: var(--brand); color: #fff; padding: 14px 16px; }
+  header h1 { margin: 0; font-size: 18px; }
+  header p { margin: 2px 0 0; font-size: 12px; opacity: .85; }
+  main { padding: 16px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+  input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 8px; font-size: 15px; font-family: inherit; }
+  button { width: 100%; padding: 12px; border: 0; border-radius: 8px; font-size: 16px; font-weight: 600; background: var(--brand); color: #fff; margin-top: 16px; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.stop { background: #e03131; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 12px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .row { display: flex; justify-content: space-between; gap: 8px; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #e7f5ff; color: var(--brand); font-size: 12px; font-weight: 600; }
+  .live { background: #ebfbee; color: var(--ok); }
+  .goal { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+  .done { background: #ebfbee; border-color: #b2f2bb; }
+  .check { display: flex; gap: 8px; align-items: center; font-weight: 400; }
+  .check input { width: auto; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <header>
+    <h1>FOCOS EVV</h1>
+    <p>Demo simulator of the FOCOS EVV mobile app</p>
+  </header>
+  <main>
+    <label for="dsp">Direct support professional</label>
+    <input id="dsp" value="Jordan Lee" />
+
+    <label for="auth">Scheduled service</label>
+    <select id="auth"><option value="">Loading authorizations…</option></select>
+    <div id="authInfo" class="card hidden"></div>
+
+    <div id="visitCard" class="card hidden">
+      <div class="row"><strong>Visit</strong><span id="visitStatus" class="pill">Not started</span></div>
+      <p class="muted" id="gpsLine">GPS: waiting for start</p>
+      <button id="startBtn">Start visit</button>
+      <div id="duringVisit" class="hidden">
+        <label for="minutes">Visit length (simulated minutes)</label>
+        <input id="minutes" type="number" min="1" value="60" />
+        <div id="goals"></div>
+        <label for="notes">Visit notes</label>
+        <textarea id="notes" rows="3" placeholder="What happened during the visit"></textarea>
+        <label class="check"><input type="checkbox" id="sig" checked /> Participant signed to verify the visit</label>
+        <button id="stopBtn" class="stop">Stop visit &amp; submit</button>
+      </div>
+    </div>
+    <div id="result" class="card done hidden"></div>
+  </main>
+</div>
+<script>
+  const api = (path, opts = {}) => fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', 'X-API-Key': '__FOCOS_API_KEY__', ...(opts.headers || {}) } })
+    .then(async (r) => { const b = await r.json(); if (!r.ok) throw new Error(b.error || r.statusText); return b; });
+  const $ = (id) => document.getElementById(id);
+  let auths = [], current, startedAt, gps;
+
+  function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  async function load() {
+    auths = (await api('/api/authorizations')).filter((a) => a.status === 'Active');
+    $('auth').innerHTML = auths.length
+      ? '<option value="">Select a participant and service</option>' + auths.map((a) =>
+          `<option value="${a.id}">${esc(a.participant.firstName)} ${esc(a.participant.lastName)} · ${esc(a.serviceCode)} ${esc(a.serviceDescription)}</option>`).join('')
+      : '<option value="">No active authorizations yet</option>';
+  }
+
+  $('auth').addEventListener('change', () => {
+    current = auths.find((a) => a.id === $('auth').value);
+    $('result').classList.add('hidden');
+    if (!current) { $('authInfo').classList.add('hidden'); $('visitCard').classList.add('hidden'); return; }
+    $('authInfo').innerHTML = `<div class="row"><strong>${esc(current.participant.firstName)} ${esc(current.participant.lastName)}</strong><span class="pill">${esc(current.authorizationNumber)}</span></div>
+      <p class="muted">Medicaid ID ${esc(current.participant.medicaidId)}<br>${esc(current.serviceCode)} · ${esc(current.serviceDescription)}<br>
+      Units: ${current.availableUnits} of ${current.authorizedUnits} available (${current.unitMinutes} min/unit)<br>${esc(current.startDate)} to ${esc(current.endDate)}</p>`;
+    $('authInfo').classList.remove('hidden');
+    $('goals').innerHTML = current.goals.length
+      ? '<label>Goal data for this visit</label>' + current.goals.map((g) => `<div class="goal"><div>${esc(g.description)}</div>
+          <div class="muted">${esc(g.measure)}${g.unit ? ` (${esc(g.unit)})` : ''}</div>
+          <input type="number" data-goal="${esc(g.id)}" aria-label="${esc(g.description)}" placeholder="Enter value" /></div>`).join('')
+      : '<p class="muted">No goals attached to this service.</p>';
+    $('visitStatus').textContent = 'Not started'; $('visitStatus').className = 'pill';
+    $('gpsLine').textContent = 'GPS: waiting for start';
+    $('startBtn').classList.remove('hidden'); $('duringVisit').classList.add('hidden');
+    $('visitCard').classList.remove('hidden');
+  });
+
+  $('startBtn').addEventListener('click', () => {
+    startedAt = new Date();
+    // Demo GPS fix near Sioux Falls, SD (a real app reads the device location).
+    gps = { lat: +(43.5446 + Math.random() * 0.01).toFixed(5), lng: +(-96.7311 + Math.random() * 0.01).toFixed(5), accuracyMeters: 8 };
+    $('visitStatus').textContent = 'In progress'; $('visitStatus').className = 'pill live';
+    $('gpsLine').textContent = `GPS ${gps.lat}, ${gps.lng} · started ${startedAt.toLocaleTimeString()}`;
+    $('startBtn').classList.add('hidden'); $('duringVisit').classList.remove('hidden');
+  });
+
+  $('stopBtn').addEventListener('click', async () => {
+    $('stopBtn').disabled = true;
+    try {
+      const minutes = Math.max(1, Number($('minutes').value) || 0);
+      const end = new Date(startedAt.getTime() + minutes * 60000);
+      const goalData = [...document.querySelectorAll('[data-goal]')].map((i) => ({ goalId: i.dataset.goal, value: i.value === '' ? '' : Number(i.value) }));
+      const v = await api('/api/visits', { method: 'POST', body: JSON.stringify({
+        authorizationId: current.id, renderingProvider: $('dsp').value, actualStart: startedAt.toISOString(), actualEnd: end.toISOString(),
+        gps, participantSignature: $('sig').checked, notes: $('notes').value, goalData }) });
+      $('result').innerHTML = `<strong>Visit verified and submitted</strong><p class="muted">${v.id} · ${v.minutes} min · ${v.units} units<br>
+        ${v.goalData.length} goal measurement(s) recorded<br>Units remaining: ${v.authorization.availableUnits} of ${v.authorization.authorizedUnits}</p>`;
+      $('result').classList.remove('hidden');
+      $('visitCard').classList.add('hidden');
+      $('authInfo').classList.add('hidden');
+      $('notes').value = '';
+      await load();
+      $('auth').value = '';
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      $('stopBtn').disabled = false;
+    }
+  });
+
+  load().catch((e) => { $('auth').innerHTML = `<option>Error: ${esc(e.message)}</option>`; });
+</script>
+</body>
+</html>

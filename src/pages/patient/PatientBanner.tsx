@@ -3,6 +3,7 @@ import { IconAlertTriangle, IconCalendarPlus, IconDots, IconEdit, IconPlayerPlay
 import { useNavigate } from 'react-router';
 import { isActiveAllergy, isNoKnownAllergy } from '../../lib/allergy';
 import { conceptText, patientName, patientSummaryLine } from '../../lib/fhir';
+import { medicaidId } from '../../lib/casemgmt/mapping';
 import { useChart } from './PatientContext';
 import { useStartEncounter } from './useStartEncounter';
 
@@ -31,6 +32,7 @@ export function PatientBanner() {
             </Group>
             <Text size="sm" c="dimmed">
               {patientSummaryLine(patient)}
+              {medicaidId(patient) ? ` · Medicaid ${medicaidId(patient)}` : ''}
               {phone ? ` · ${phone}` : ''}
               {` · ${coverage?.payor?.[0]?.display ?? 'Self-pay'}`}
             </Text>

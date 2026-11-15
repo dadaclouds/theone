@@ -96,12 +96,51 @@ server it uses the default super-admin (`admin@example.com` / `medplum_admin`, o
 
 Sign in as `dr.chen@example.com` / `Riverside-demo-2026!` (or `dr.okafor@example.com`, same password).
 
+## Case-management demo (FOCOS integration)
+
+Demonstrates the case-management layer working with FOCOS Connect: intake and screening →
+eligibility and waiver enrollment → Individual Support Plan with goals → service authorization
+request → Division approval → authorization created in FOCOS → EVV visit with goal data →
+visit, units and goal progress flow back.
+
+`focos-mock/` is a stand-in for the FOCOS Connect API (authorizations in, EVV-verified visits out)
+with a phone-style EVV simulator. Point `MEDPLUM_FOCOS_API_URL` at the real FOCOS API to replace it.
+
+```bash
+npm run focos-mock          # mock FOCOS API + EVV simulator on http://localhost:4100
+npm run seed                # clinic, clinicians, sample charts (once)
+npm run seed:demo           # Alex Rivera (history, goals, visits, cap alert) + Taylor Morgan (fresh referral)
+npm run dev
+```
+
+Demo walkthrough (Taylor Morgan, Medicaid ID SD5582094):
+
+1. **Eligibility** tab → New screening → Determine eligibility (CHOICES Waiver).
+2. **Support plan** tab → Create ISP → Add goal → Add service → Request authorization.
+3. **Approvals** (Division queue) → Approve and send to FOCOS.
+4. Open the EVV simulator (http://localhost:4100 or **Services & visits → Open FOCOS EVV**), pick
+   Taylor, Start visit, enter goal data, Stop visit & submit.
+5. **Services & visits** → Sync from FOCOS: the verified visit, units used and (on **Support plan**)
+   the goal's progress chart update. Alex Rivera shows a month of history and an 80% unit-cap alert.
+
+Demo-only shortcuts, to replace before production:
+
+* The FOCOS API key is exposed to the browser (`MEDPLUM_FOCOS_*` env vars); production runs the
+  FOCOS integration server-side (Medplum Bot or integration service) with the key in a secrets store.
+* The screening instrument and its tier thresholds are illustrative, not a South Dakota tool.
+* Waiver names, HCPCS service codes and the Medicaid ID identifier system are placeholders to
+  confirm with DHS (`src/lib/casemgmt/constants.ts`).
+* Sign-in uses Medplum accounts; the planned shared AWS Cognito sign-in with FOCOS is not wired up.
+
+`node scripts/e2e-demo.mjs` runs the whole story in a browser (10 steps).
+
 ## Tests
 
 ```bash
 npm test                   # unit tests for clinical logic (allergy screening, vitals, notes, labs, billing)
 npm run typecheck
 npm run e2e                # 27-step browser walkthrough; needs the app + seeded server running and Playwright installed
+node scripts/e2e-demo.mjs  # 10-step case-management demo story (also needs npm run focos-mock and seed:demo)
 ```
 
 ## Before using with real patients

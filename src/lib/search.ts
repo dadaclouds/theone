@@ -1,4 +1,7 @@
+import { CM_SYSTEMS } from './casemgmt/constants';
 import { SYSTEMS } from './constants';
+
+const MEDICAID_SYSTEM = CM_SYSTEMS.MEDICAID_ID;
 
 /**
  * Interprets free text typed into a patient search box:
@@ -8,6 +11,9 @@ import { SYSTEMS } from './constants';
  */
 export function buildPatientQuery(text: string): Record<string, string> {
   const q = text.trim();
+  if (/^[A-Za-z]{2}\d{5,}$/.test(q)) {
+    return { identifier: `${MEDICAID_SYSTEM}|${q.toUpperCase()}` };
+  }
   if (/^\d{4,}$/.test(q)) {
     return { identifier: `${SYSTEMS.MRN}|${q}` };
   }

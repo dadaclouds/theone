@@ -10,6 +10,7 @@ import { AllergiesTab } from './AllergiesTab';
 import { AppointmentsTab } from './AppointmentsTab';
 import { BillingTab } from './BillingTab';
 import { DocumentsTab } from './DocumentsTab';
+import { EligibilityTab } from './EligibilityTab';
 import { EncountersTab } from './EncountersTab';
 import { ImmunizationsTab } from './ImmunizationsTab';
 import { LabsTab } from './LabsTab';
@@ -19,12 +20,17 @@ import { NotesTab } from './NotesTab';
 import { PatientBanner } from './PatientBanner';
 import { ChartContext, type ChartData } from './PatientContext';
 import { ProblemsTab } from './ProblemsTab';
+import { ServicesTab } from './ServicesTab';
 import { SummaryTab } from './SummaryTab';
+import { SupportPlanTab } from './SupportPlanTab';
 import { TimelineTab } from './TimelineTab';
 import { VitalsTab } from './VitalsTab';
 
 const TABS = [
   { value: 'summary', label: 'Summary', component: SummaryTab },
+  { value: 'eligibility', label: 'Eligibility', component: EligibilityTab },
+  { value: 'support-plan', label: 'Support plan', component: SupportPlanTab },
+  { value: 'services', label: 'Services & visits', component: ServicesTab },
   { value: 'encounters', label: 'Encounters', component: EncountersTab },
   { value: 'notes', label: 'Notes', component: NotesTab },
   { value: 'problems', label: 'Problems', component: ProblemsTab },

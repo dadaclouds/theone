@@ -41,11 +41,11 @@ export function PatientListPage() {
   return (
     <>
       <PageHeader
-        title="Patients"
-        subtitle={`${total} patient${total === 1 ? '' : 's'}`}
+        title="Participants"
+        subtitle={`${total} participant${total === 1 ? '' : 's'}`}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={() => navigate('/patients/new')}>
-            Register patient
+            Register participant
           </Button>
         }
       />
@@ -54,13 +54,13 @@ export function PatientListPage() {
           <TextInput
             style={{ flex: 1 }}
             leftSection={<IconSearch size={16} />}
-            placeholder="Filter by name, MRN or date of birth"
+            placeholder="Filter by name, MRN, Medicaid ID or date of birth"
             value={query}
             onChange={(e) => {
               setQuery(e.currentTarget.value);
               setPage(1);
             }}
-            aria-label="Filter patients"
+            aria-label="Filter participants"
           />
         </Group>
         <Table.ScrollContainer minWidth={700}>
@@ -100,7 +100,7 @@ export function PatientListPage() {
             </Table.Tbody>
           </Table>
         </Table.ScrollContainer>
-        {!loading && patients.length === 0 && <EmptyState>No patients found</EmptyState>}
+        {!loading && patients.length === 0 && <EmptyState>No participants found</EmptyState>}
         {total > PAGE_SIZE && (
           <Group justify="center" p="sm">
             <Pagination total={Math.ceil(total / PAGE_SIZE)} value={page} onChange={setPage} />

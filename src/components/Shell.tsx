@@ -2,6 +2,7 @@ import { AppShell, Avatar, Badge, Burger, Group, Menu, NavLink, ScrollArea, Text
 import { useDisclosure } from '@mantine/hooks';
 import {
   IconCalendar,
+  IconGavel,
   IconChecklist,
   IconHome,
   IconInbox,
@@ -18,21 +19,28 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { APP_NAME } from '../lib/branding';
-import { TASK_CODES, SYSTEMS } from '../lib/constants';
+import { CM_CODES, CM_SYSTEMS } from '../lib/casemgmt/constants';
+import { TASK_CODES, SYSTEMS, WORK_QUEUE_EXCLUDED } from '../lib/constants';
+import { toQuery } from '../lib/search';
 import { profileDisplay } from '../lib/fhir';
 import { PatientSearch } from './PatientSearch';
+
+/** Dispatch this window event after changing work-queue items so the nav badges update immediately. */
+export const COUNTS_CHANGED = 'ehr:counts-changed';
+export const notifyCountsChanged = (): void => void window.dispatchEvent(new Event(COUNTS_CHANGED));
 
 interface NavItem {
   label: string;
   href: string;
   icon: ReactNode;
-  countKey?: 'inbox' | 'tasks';
+  countKey?: 'inbox' | 'tasks' | 'approvals';
 }
 
 const NAV: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: <IconHome size={18} /> },
-  { label: 'Patients', href: '/patients', icon: <IconUsers size={18} /> },
+  { label: 'Participants', href: '/patients', icon: <IconUsers size={18} /> },
   { label: 'Schedule', href: '/schedule', icon: <IconCalendar size={18} /> },
+  { label: 'Approvals', href: '/approvals', icon: <IconGavel size={18} />, countKey: 'approvals' },
   { label: 'Results inbox', href: '/inbox', icon: <IconInbox size={18} />, countKey: 'inbox' },
   { label: 'Tasks', href: '/tasks', icon: <IconChecklist size={18} />, countKey: 'tasks' },
   { label: 'Messages', href: '/messages', icon: <IconMessages size={18} /> },
@@ -46,26 +54,30 @@ export function Shell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [opened, { toggle, close }] = useDisclosure();
-  const [counts, setCounts] = useState<{ inbox: number; tasks: number }>({ inbox: 0, tasks: 0 });
+  const [counts, setCounts] = useState<{ inbox: number; tasks: number; approvals: number }>({ inbox: 0, tasks: 0, approvals: 0 });
   const project = medplum.getProject();
 
   useEffect(() => {
     let cancelled = false;
     const load = async (): Promise<void> => {
       const open = 'requested,received,accepted,in-progress,ready';
-      const [inbox, tasks] = await Promise.all([
+      const [inbox, tasks, approvals] = await Promise.all([
         medplum.search('Task', { code: `${SYSTEMS.TASK_TYPE}|${TASK_CODES.REVIEW_RESULT}`, status: open, _summary: 'count' }, { cache: 'no-cache' }),
-        medplum.search('Task', { 'code:not': `${SYSTEMS.TASK_TYPE}|${TASK_CODES.REVIEW_RESULT}`, status: open, _summary: 'count' }, { cache: 'no-cache' }),
+        medplum.search('Task', toQuery({ 'code:not': WORK_QUEUE_EXCLUDED, status: open, _summary: 'count' }), { cache: 'no-cache' }),
+        medplum.search('Task', { code: `${CM_SYSTEMS.CASE_MGMT}|${CM_CODES.AUTH_APPROVAL}`, status: open, _summary: 'count' }, { cache: 'no-cache' }),
       ]);
       if (!cancelled) {
-        setCounts({ inbox: inbox.total ?? 0, tasks: tasks.total ?? 0 });
+        setCounts({ inbox: inbox.total ?? 0, tasks: tasks.total ?? 0, approvals: approvals.total ?? 0 });
       }
     };
-    load().catch(console.error);
-    const timer = setInterval(() => load().catch(console.error), 30000);
+    const refresh = (): void => void load().catch(console.error);
+    refresh();
+    const timer = setInterval(refresh, 30000);
+    window.addEventListener(COUNTS_CHANGED, refresh);
     return () => {
       cancelled = true;
       clearInterval(timer);
+      window.removeEventListener(COUNTS_CHANGED, refresh);
     };
   }, [medplum, location.pathname]);
 

@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "seed": "tsx scripts/seed.ts",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "focos-mock": "node focos-mock/server.mjs"
   },
   "dependencies": {
     "@mantine/core": "8.3.18",

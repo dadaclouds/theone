@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { PageHeader } from '../components/common';
 import { notifyError, notifySuccess } from '../components/notify';
+import { CM_SYSTEMS } from '../lib/casemgmt/constants';
 import { SYSTEMS } from '../lib/constants';
 import { generateMrn, patientMrn, patientName } from '../lib/fhir';
 
@@ -21,6 +22,7 @@ interface FormState {
   state: string;
   postalCode: string;
   language: string;
+  medicaidId: string;
   emergencyName: string;
   emergencyPhone: string;
   payor: string;
@@ -30,7 +32,7 @@ interface FormState {
 
 const EMPTY: FormState = {
   given: '', family: '', birthDate: '', gender: '', phone: '', email: '', line: '', city: '', state: '', postalCode: '',
-  language: 'en', emergencyName: '', emergencyPhone: '', payor: '', memberId: '', groupId: '',
+  language: 'en', medicaidId: '', emergencyName: '', emergencyPhone: '', payor: '', memberId: '', groupId: '',
 };
 
 const LANGUAGES = [
@@ -57,6 +59,7 @@ function fromPatient(p: Patient, coverage?: Coverage): FormState {
     state: addr?.state ?? '',
     postalCode: addr?.postalCode ?? '',
     language: p.communication?.[0]?.language?.coding?.[0]?.code ?? 'en',
+    medicaidId: p.identifier?.find((i) => i.system === CM_SYSTEMS.MEDICAID_ID)?.value ?? '',
     emergencyName: contact?.name?.text ?? '',
     emergencyPhone: contact?.telecom?.[0]?.value ?? '',
     payor: coverage?.payor?.[0]?.display ?? '',
@@ -101,7 +104,8 @@ export function NewPatientPage() {
     resourceType: 'Patient',
     active: true,
     identifier: [
-      ...(existing?.identifier?.filter((i) => i.system !== SYSTEMS.MRN) ?? []),
+      ...(existing?.identifier?.filter((i) => i.system !== SYSTEMS.MRN && i.system !== CM_SYSTEMS.MEDICAID_ID) ?? []),
+      ...(form.medicaidId.trim() ? [{ system: CM_SYSTEMS.MEDICAID_ID, value: form.medicaidId.trim().toUpperCase(), type: { text: 'Medicaid ID' } }] : []),
       { system: SYSTEMS.MRN, value: mrn, type: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0203', code: 'MR' }], text: 'MRN' } },
     ],
     name: [{ use: 'official', given: form.given.trim().split(/\s+/), family: form.family.trim() }],
@@ -134,7 +138,9 @@ export function NewPatientPage() {
     setSaving(true);
     try {
       if (!existing && !force) {
-        const dup = await medplum.searchOne('Patient', { family: form.family.trim(), birthdate: form.birthDate }, { cache: 'no-cache' });
+        const dup =
+          (form.medicaidId.trim() ? await medplum.searchOne('Patient', { identifier: `${CM_SYSTEMS.MEDICAID_ID}|${form.medicaidId.trim().toUpperCase()}` }, { cache: 'no-cache' }) : undefined) ??
+          (await medplum.searchOne('Patient', { family: form.family.trim(), birthdate: form.birthDate }, { cache: 'no-cache' }));
         if (dup) {
           setDuplicate(dup);
           return;
@@ -193,7 +199,7 @@ export function NewPatientPage() {
 
   return (
     <>
-      <PageHeader title={existing ? `Edit ${patientName(existing)}` : 'Register patient'} />
+      <PageHeader title={existing ? `Edit ${patientName(existing)}` : 'Register participant'} />
       <Card withBorder maw={900}>
         <form
           onSubmit={(e) => {
@@ -226,6 +232,7 @@ export function NewPatientPage() {
               <Grid.Col span={{ base: 12, sm: 4 }}>
                 <Select label="Preferred language" data={LANGUAGES} value={form.language} onChange={set('language')} />
               </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}><TextInput label="Medicaid ID" description="Links the participant to FOCOS EVV and billing" {...input('medicaidId')} /></Grid.Col>
               <Grid.Col span={{ base: 12, sm: 6 }}><TextInput label="Phone" type="tel" {...input('phone')} /></Grid.Col>
               <Grid.Col span={{ base: 12, sm: 6 }}><TextInput label="Email" type="email" {...input('email')} /></Grid.Col>
               <Grid.Col span={12}><TextInput label="Street address" {...input('line')} /></Grid.Col>
@@ -248,7 +255,7 @@ export function NewPatientPage() {
             </Grid>
             <Group justify="flex-end">
               <Button variant="default" onClick={() => navigate(-1)}>Cancel</Button>
-              <Button type="submit" loading={saving}>{existing ? 'Save changes' : 'Register patient'}</Button>
+              <Button type="submit" loading={saving}>{existing ? 'Save changes' : 'Register participant'}</Button>
             </Group>
           </Stack>
         </form>

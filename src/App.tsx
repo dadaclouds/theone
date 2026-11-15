@@ -3,6 +3,7 @@ import { useMedplum, useMedplumProfile } from '@medplum/react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { Shell } from './components/Shell';
 import { AdminPage } from './pages/AdminPage';
+import { ApprovalsPage } from './pages/ApprovalsPage';
 import { BillingPage } from './pages/BillingPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EncounterPage } from './pages/encounter/EncounterPage';
@@ -53,6 +54,7 @@ export function App() {
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/billing" element={<BillingPage />} />
+        <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

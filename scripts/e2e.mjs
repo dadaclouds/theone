@@ -52,9 +52,9 @@ await check('dashboard', async () => {
 });
 
 await check('patient list + search', async () => {
-  await page.getByRole('link', { name: 'Patients' }).or(page.getByText('Patients', { exact: true })).first().click();
+  await page.getByRole('link', { name: 'Participants' }).or(page.getByText('Participants', { exact: true })).first().click();
   await expectVisible(page.getByText('Margaret O\'Brien'));
-  await page.getByLabel('Filter patients').fill('Hernandez');
+  await page.getByLabel('Filter participants').fill('Hernandez');
   await expectVisible(page.getByRole('cell', { name: 'Robert Hernandez' }));
   await page.getByRole('cell', { name: 'Robert Hernandez' }).click();
   await expectVisible(page.getByTestId('patient-banner').getByText('Penicillin'));
@@ -100,7 +100,7 @@ await check('register patient', async () => {
   await page.getByLabel('Phone').first().fill('(503) 555-0100');
   await page.getByLabel('Payer').fill('Aetna');
   await page.getByLabel('Member ID').fill('AET-TEST-1');
-  await page.getByRole('button', { name: 'Register patient' }).click();
+  await page.getByRole('button', { name: 'Register participant' }).click();
   await expectVisible(page.getByTestId('patient-banner').getByText(`Jane ${lastName}`));
   await expectVisible(page.getByText('Allergies not reviewed'));
 });

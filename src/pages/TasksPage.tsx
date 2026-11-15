@@ -7,7 +7,8 @@ import { useNavigate } from 'react-router';
 import { PatientSearch } from '../components/PatientSearch';
 import { EmptyState, PageHeader, StatusBadge } from '../components/common';
 import { notifyError, notifySuccess } from '../components/notify';
-import { SYSTEMS, TASK_CODES } from '../lib/constants';
+import { SYSTEMS, TASK_CODES, WORK_QUEUE_EXCLUDED } from '../lib/constants';
+import { toQuery } from '../lib/search';
 import { formatDate, patientName, profileDisplay } from '../lib/fhir';
 import { useAsync } from '../lib/hooks';
 
@@ -29,7 +30,7 @@ export function TasksPage() {
     () =>
       medplum.searchResources(
         'Task',
-        { 'code:not': `${SYSTEMS.TASK_TYPE}|${TASK_CODES.REVIEW_RESULT}`, status: scope === 'open' ? OPEN : 'completed,cancelled', _sort: '-_lastUpdated', _count: '200' },
+        toQuery({ 'code:not': WORK_QUEUE_EXCLUDED, status: scope === 'open' ? OPEN : 'completed,cancelled', _sort: '-_lastUpdated', _count: '200' }),
         { cache: 'no-cache' }
       ),
     [medplum, scope]

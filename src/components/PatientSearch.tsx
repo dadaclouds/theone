@@ -60,8 +60,8 @@ export function PatientSearch({ onSelect, w, style, placeholder, label }: Patien
           w={w}
           style={style}
           label={label}
-          aria-label={label ?? 'Search patients'}
-          placeholder={placeholder ?? 'Search patients (name, MRN, DOB)'}
+          aria-label={label ?? 'Search participants'}
+          placeholder={placeholder ?? 'Search participants (name, Medicaid ID, MRN, DOB)'}
           leftSection={<IconSearch size={16} />}
           rightSection={loading ? <Loader size="xs" /> : null}
           value={value}
@@ -76,7 +76,7 @@ export function PatientSearch({ onSelect, w, style, placeholder, label }: Patien
       </Combobox.Target>
       <Combobox.Dropdown hidden={value.trim().length < 2}>
         <Combobox.Options>
-          {results.length === 0 && !loading && <Combobox.Empty>No matching patients</Combobox.Empty>}
+          {results.length === 0 && !loading && <Combobox.Empty>No matching participants</Combobox.Empty>}
           {results.map((p) => (
             <Combobox.Option value={p.id as string} key={p.id}>
               <Group justify="space-between" wrap="nowrap">

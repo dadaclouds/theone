@@ -1,3 +1,5 @@
+import { CM_CODES, CM_SYSTEMS } from './casemgmt/constants';
+
 // Code systems and identifiers used throughout the EHR.
 export const SYSTEMS = {
   LOINC: 'http://loinc.org',
@@ -35,6 +37,12 @@ export const TASK_CODES = {
   FOLLOW_UP: 'follow-up',
   GENERAL: 'general',
 } as const;
+
+/** Task codes with their own queues (results inbox, Division approvals), excluded from the Tasks page. */
+export const WORK_QUEUE_EXCLUDED = [
+  `${SYSTEMS.TASK_TYPE}|${TASK_CODES.REVIEW_RESULT}`,
+  `${CM_SYSTEMS.CASE_MGMT}|${CM_CODES.AUTH_APPROVAL}`,
+];
 
 export const NOTE_LOINC = { code: '11506-3', display: 'Progress note' };
 export const ADDENDUM_LOINC = { code: '55107-7', display: 'Addendum Document' };
